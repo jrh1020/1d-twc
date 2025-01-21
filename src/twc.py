@@ -6,28 +6,30 @@ import matplotlib.pyplot as plt
 from scipy.integrate import ode
 
 
-def twc(t, y, alpha, dx, T_inlet, wall_flux, num_points, num_y):
+def twc(t, y, alpha, dx, T_inlet, wall_flux, num_z, num_y):
+
+    print("Executing t = %.4f" % (t))
 
     #
     # VARIABLE RECALL AND PREP
     #
 
     # Temperature
-    Ts     = y[:num_points]
+    Ts     = y[:num_z]
     dTsdt = np.zeros_like(Ts)
 
-    Tg     = y[num_points + 1:2 * num_points]
+    Tg     = y[num_z:2 * num_z]
     dTgdt = np.zeros_like(Tg)
 
     # Gas Species
-    xCOg   = y[2*num_points+1:3*num_points]
-    xO2g   = y[3*num_points+1:4*num_points]
-    xCO2g  = y[4*num_points+1:5*num_points]
-    xC3H6g = y[5*num_points+1:6*num_points]
-    xH2Og  = y[6*num_points+1:7*num_points]
-    xNOg   = y[7*num_points+1:8*num_points]
-    xH2g   = y[8*num_points+1:9*num_points]
-    xN2g   = y[9*num_points+1:10*num_points]
+    xCOg   = y[2 * num_z:3 * num_z]
+    xO2g   = y[3 * num_z:4 * num_z]
+    xCO2g  = y[4 * num_z:5 * num_z]
+    xC3H6g = y[5 * num_z:6 * num_z]
+    xH2Og  = y[6 * num_z:7 * num_z]
+    xNOg   = y[7 * num_z:8 * num_z]
+    xH2g   = y[8 * num_z:9 * num_z]
+    xN2g   = y[9 * num_z:10 * num_z]
 
     dxCOgdt   = np.zeros_like(xCOg)
     dxO2gdt   = np.zeros_like(xO2g)
@@ -39,14 +41,14 @@ def twc(t, y, alpha, dx, T_inlet, wall_flux, num_points, num_y):
     dxN2gdt   = np.zeros_like(xN2g)
 
     # Solid-phase (washcoat) Species
-    xCOw   = np.reshape(y[10*num_points+1:(10+num_y)*num_points], (num_points, num_y))
-    xO2w   = np.reshape(y[(10+num_y)*num_points+1:(10+2*num_y)*num_points], (num_points, num_y))
-    xCO2w  = np.reshape(y[(10+2*num_y)*num_points+1:(10+3*num_y)*num_points], (num_points, num_y))
-    xC3H6w = np.reshape(y[(10+3*num_y)*num_points+1:(10+4*num_y)*num_points], (num_points, num_y))
-    xH2Ow  = np.reshape(y[(10+4*num_y)*num_points+1:(10+5*num_y)*num_points], (num_points, num_y))
-    xNOw   = np.reshape(y[(10+5*num_y)*num_points+1:(10+6*num_y)*num_points], (num_points, num_y))
-    xH2w   = np.reshape(y[(10+6*num_y)*num_points+1:(10+7*num_y)*num_points], (num_points, num_y))
-    xN2w   = np.reshape(y[(10+7*num_y)*num_points+1:(10+8*num_y)*num_points], (num_points, num_y))
+    xCOw   = np.reshape(y[10 * num_z:(10 + num_y) * num_z], (num_z, num_y))
+    xO2w   = np.reshape(y[(10+num_y) * num_z:(10 + 2*num_y) * num_z], (num_z, num_y))
+    xCO2w  = np.reshape(y[(10+2*num_y) * num_z:(10 + 3*num_y) * num_z], (num_z, num_y))
+    xC3H6w = np.reshape(y[(10+3*num_y) * num_z:(10 + 4*num_y) * num_z], (num_z, num_y))
+    xH2Ow  = np.reshape(y[(10+4*num_y) * num_z:(10 + 5*num_y) * num_z], (num_z, num_y))
+    xNOw   = np.reshape(y[(10+5*num_y) * num_z:(10 + 6*num_y) * num_z], (num_z, num_y))
+    xH2w   = np.reshape(y[(10+6*num_y) * num_z:(10 + 7*num_y) * num_z], (num_z, num_y))
+    xN2w   = np.reshape(y[(10+7*num_y) * num_z:(10 + 8*num_y) * num_z], (num_z, num_y))
 
     dxCOwdt   = np.zeros_like(xCOw)
     dxO2wdt   = np.zeros_like(xO2w)
@@ -64,14 +66,17 @@ def twc(t, y, alpha, dx, T_inlet, wall_flux, num_points, num_y):
     # Solid-phase temperature
 
     # Neumann boundary condition (ghost point method)
-    dTsdt[0] = (wall_flux - ((Ts[0] - Ts[1]) / dx)) / dx
+    dTsdt[0]    = alpha * (wall_flux - ((Ts[0] - Ts[1]) / dx)) / dx
     dTsdt[1:-1] = alpha * (Ts[:-2] - 2 * Ts[1:-1] + Ts[2:]) / dx ** 2
-    dTsdt[-1] = (wall_flux - ((Ts[-1] - Ts[-2]) / dx)) / dx
+    dTsdt[-1]   = alpha * (wall_flux - ((Ts[-1] - Ts[-2]) / dx)) / dx
+
+    # Gas-phase temperature
+
 
     #
     # RETURN
     #
-    return [dTsdt,
+    return np.concatenate((dTsdt,
             dTgdt,
             dxCOgdt,
             dxO2gdt,
@@ -88,7 +93,7 @@ def twc(t, y, alpha, dx, T_inlet, wall_flux, num_points, num_y):
             dxH2Owdt.flatten(),
             dxNOwdt.flatten(),
             dxH2wdt.flatten(),
-            dxN2wdt.flatten()]
+            dxN2wdt.flatten()))
 
 
 # def jacobian(t, T, alpha, dx, dirichlet_bc, neumann_bc):
@@ -108,43 +113,67 @@ def twc(t, y, alpha, dx, T_inlet, wall_flux, num_points, num_y):
 #     return J
 
 
-def solve_twc(length, num_points, time_steps, alpha, dirichlet_bc, neumann_bc, y_initial):
-    dx = length / (num_points - 1)
-    x = np.linspace(0, length, num_points)
-
-    # Initial condition
-    y0 = np.full(num_points, y_initial)
+def solve_twc(length, num_z, num_y, time_steps, alpha, inlet_temp, boundary_wall_flux, y0):
+    dz = length / (num_z - 1)
+    z = np.linspace(0, length, num_z)
 
     # Set up ODE solver with Jacobian
-    # r = ode(transient_heated_rod, jacobian).set_integrator('vode', method='bdf')
-    r = ode(twc).set_integrator('vode', method='bdf')
+    r = (ode(lambda t, y: twc(t, y, alpha, dz, inlet_temp, boundary_wall_flux, num_z, num_y))
+         .set_integrator('vode', method='bdf'))
     r.set_initial_value(y0)
-    r.set_f_params(alpha, dx, dirichlet_bc, neumann_bc, num_points)
-    # r.set_jac_params(alpha, dx, dirichlet_bc, neumann_bc)
 
     # Time-stepping loop
-    results = [y0]
+    y = [y0]
+    t = [0]
     for _ in range(time_steps):
         r.integrate(r.t + 1)  # Integrate to the next time step
-        results.append(r.y)
+        y.append(r.y)
+        t.append(r.t)
 
     # Visualize results
-    results = np.array(results).T
-    for i in range(0, time_steps + 1, max(1, time_steps // 10)):
-        plt.plot(x, results[:, i], label=f'Time Step {i}')
+    # plt.plot(0.0, y0[:num_z])
+    for i in range(len(t)):  # range(0, time_steps + 1, max(1, time_steps // 10)):
+        plt.plot(z, y[i][:num_z], label=('t = %.2fs' % (t[i])))
 
     plt.xlabel('Position (m)')
-    plt.ylabel('Temperature')
+    plt.ylabel('Temperature (K)')
     plt.legend()
     plt.show()
 
 
-# Solve the transient heated rod problem using SciPy ode solver
-solve_twc(settings.length,
-          settings.num_points,
-          settings.time_steps,
-          settings.alpha,
-          settings.dirichlet_bc,
-          settings.neumann_bc,
-          [settings.T0,
-                  settings.T0])
+if __name__ == '__main__':
+
+    num_z = settings.num_z
+    num_y = settings.num_y
+    y_initial = np.concatenate((
+                                np.full((num_z, 1), settings.T0),  # Ts
+                                np.full((num_z, 1), settings.T0),  # Tg
+
+                                np.full((num_z, 1), settings.c0[0]),  # CO g
+                                np.full((num_z, 1), settings.c0[1]),  # O2 g
+                                np.full((num_z, 1), settings.c0[2]),  # CO2 g
+                                np.full((num_z, 1), settings.c0[3]),  # C3H6 g
+                                np.full((num_z, 1), settings.c0[4]),  # H2O g
+                                np.full((num_z, 1), settings.c0[5]),  # NO g
+                                np.full((num_z, 1), settings.c0[6]),  # H2 g
+                                np.full((num_z, 1), settings.c0[7]),  # N2 g
+
+                                np.full((num_z*num_y, 1), settings.c0[0]),  # CO wc
+                                np.full((num_z*num_y, 1), settings.c0[1]),  # O2 wc
+                                np.full((num_z*num_y, 1), settings.c0[2]),  # CO2 wc
+                                np.full((num_z*num_y, 1), settings.c0[3]),  # C3H6 wc
+                                np.full((num_z*num_y, 1), settings.c0[4]),  # H2O wc
+                                np.full((num_z*num_y, 1), settings.c0[5]),  # NO wc
+                                np.full((num_z*num_y, 1), settings.c0[6]),  # H2 wc
+                                np.full((num_z*num_y, 1), settings.c0[7])  # N2 wc
+                              ))
+
+    # Solve the transient heated rod problem using SciPy ode solver
+    solve_twc(settings.length,
+              settings.num_z,
+              settings.num_y,
+              settings.time_steps,
+              settings.alpha,
+              settings.inlet_temp,
+              settings.boundary_wall_flux,
+              y_initial)
